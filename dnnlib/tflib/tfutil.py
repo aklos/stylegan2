@@ -1,8 +1,10 @@
-# Copyright (c) 2019, NVIDIA Corporation. All rights reserved.
+﻿# Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
 #
-# This work is made available under the Nvidia Source Code License-NC.
-# To view a copy of this license, visit
-# https://nvlabs.github.io/stylegan2/license.html
+# NVIDIA CORPORATION and its licensors retain all intellectual property
+# and proprietary rights in and to this software, related documentation
+# and any modifications thereto.  Any use, reproduction, disclosure or
+# distribution of this software and related documentation without an express
+# license agreement from NVIDIA CORPORATION is strictly prohibited.
 
 """Miscellaneous helper utils for Tensorflow."""
 
@@ -59,6 +61,13 @@ def exp2(x: TfExpressionEx) -> TfExpression:
         return tf.exp(x * np.float32(np.log(2.0)))
 
 
+def erfinv(y: TfExpressionEx) -> TfExpression:
+    """Inverse of the error function."""
+    # pylint: disable=no-name-in-module
+    from tensorflow.python.ops.distributions import special_math
+    return special_math.erfinv(y)
+
+
 def lerp(a: TfExpressionEx, b: TfExpressionEx, t: TfExpressionEx) -> TfExpressionEx:
     """Linear interpolation."""
     with tf.name_scope("Lerp"):
@@ -87,6 +96,7 @@ def _sanitize_tf_config(config_dict: dict = None) -> dict:
     cfg["rnd.np_random_seed"]               = None      # Random seed for NumPy. None = keep as is.
     cfg["rnd.tf_random_seed"]               = "auto"    # Random seed for TensorFlow. 'auto' = derive from NumPy random state. None = keep as is.
     cfg["env.TF_CPP_MIN_LOG_LEVEL"]         = "1"       # 0 = Print all available debug info from TensorFlow. 1 = Print warnings and errors, but disable debug info.
+    cfg["env.HDF5_USE_FILE_LOCKING"]        = "FALSE"   # Disable HDF5 file locking to avoid concurrency issues with network shares.
     cfg["graph_options.place_pruned_graph"] = True      # False = Check that all ops are available on the designated device. True = Skip the check for ops that are not used.
     cfg["gpu_options.allow_growth"]         = True      # False = Allocate all GPU memory at the beginning. True = Allocate only as much GPU memory as needed.
 
@@ -237,7 +247,7 @@ def convert_images_from_uint8(images, drange=[-1,1], nhwc_to_nchw=False):
     return images * ((drange[1] - drange[0]) / 255) + drange[0]
 
 
-def convert_images_to_uint8(images, drange=[-1,1], nchw_to_nhwc=False, shrink=1):
+def convert_images_to_uint8(images, drange=[-1,1], nchw_to_nhwc=False, shrink=1, uint8_cast=True):
     """Convert a minibatch of images from float32 to uint8 with configurable dynamic range.
     Can be used as an output transformation for Network.run().
     """
@@ -249,4 +259,6 @@ def convert_images_to_uint8(images, drange=[-1,1], nchw_to_nhwc=False, shrink=1)
         images = tf.transpose(images, [0, 2, 3, 1])
     scale = 255 / (drange[1] - drange[0])
     images = images * scale + (0.5 - drange[0] * scale)
-    return tf.saturate_cast(images, tf.uint8)
+    if uint8_cast:
+        images = tf.saturate_cast(images, tf.uint8)
+    return images
